@@ -1,5 +1,6 @@
 "module"
-import datetime
+from datetime import datetime, timezone
+
 from redis import StrictRedis
 
 CFG = {
@@ -7,6 +8,7 @@ CFG = {
     "RED_DB_PORT": 6379,
     "RED_DB": 0,
 }
+
 
 class Redis:
     "Class for Redis connection"
@@ -38,13 +40,22 @@ class NamedLock:
 
     def __enter__(self):
         "function"
-        self.lock = self.redis.conn.lock(self.lock_name)
-        if self.lock.acquire(blocking=True, blocking_timeout=self.timeout):
-            print(f"NamedLock '{self.lock_name}' acquired at: {datetime.datetime.now(datetime.timezone.utc).isoformat()}")
-            return
-        raise self.NamedLockException("Unable to acquire DB lock")
+        try:
+            self.lock = self.redis.conn.lock(self.lock_name)
+            if self.lock.acquire(blocking=True, blocking_timeout=self.timeout):
+                print(
+                    f"NamedLock '{self.lock_name}' acquired at: "
+                    f"{datetime.now(timezone.utc).isoformat()}"
+                )
+                return
+            raise self.NamedLockException("Unable to acquire DB lock")
+        except Exception as e:
+            raise self.NamedLockException(f"Error acquiring lock: {e}")
 
     def __exit__(self, *_):
         "function"
         self.lock.release()
-        print(f"NamedLock '{self.lock_name}' released at: {datetime.datetime.now(datetime.timezone.utc).isoformat()}")
+        print(
+            f"NamedLock '{self.lock_name}' released at: "
+            f"{datetime.now(timezone.utc).isoformat()}"
+        )
