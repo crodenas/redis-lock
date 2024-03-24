@@ -1,5 +1,6 @@
 "module"
 from datetime import datetime, timezone
+from typing import Any, Optional
 
 from redis import StrictRedis
 
@@ -13,11 +14,16 @@ CFG = {
 class Redis:
     "Class for Redis connection"
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        host: str = CFG["RED_DB_HOST"],
+        port: int = CFG["RED_DB_PORT"],
+        database: int = CFG["RED_DB"],
+    ) -> None:
         "function"
-        self.host = kwargs.get("host", CFG["RED_DB_HOST"])
-        self.port = kwargs.get("port", CFG["RED_DB_PORT"])
-        self.database = kwargs.get("database", CFG["RED_DB"])
+        self.host = host
+        self.port = port
+        self.database = database
         self.conn = StrictRedis(
             host=self.host,
             port=self.port,
@@ -31,10 +37,19 @@ class NamedLock:
     class NamedLockException(Exception):
         "Custom exception for NamedLocks"
 
-    def __init__(self, lock_name, **kwargs):
+    def __init__(
+        self,
+        lock_name: str,
+        blocking: bool = True,
+        blocking_timeout: int = 30,
+        timeout: Optional[int] = None,
+        **kwargs: Any,
+    ) -> None:
         "function"
         self.lock_name = lock_name
-        self.timeout = kwargs.get("timeout", 30)
+        self.blocking = blocking
+        self.blocking_timeout = blocking_timeout
+        self.timeout = timeout
         self.redis = Redis(**kwargs)
         self.lock = None
 
@@ -42,7 +57,10 @@ class NamedLock:
         "function"
         try:
             self.lock = self.redis.conn.lock(self.lock_name)
-            if self.lock.acquire(blocking=True, blocking_timeout=self.timeout):
+            if self.lock.acquire(
+                blocking=self.blocking,
+                blocking_timeout=self.blocking_timeout,
+            ):
                 print(
                     f"NamedLock '{self.lock_name}' acquired at: "
                     f"{datetime.now(timezone.utc).isoformat()}"
